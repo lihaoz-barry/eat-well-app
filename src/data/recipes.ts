@@ -452,6 +452,32 @@ export const RECIPE_MAP: Record<string, Recipe> = Object.fromEntries(
   RECIPES.map((r) => [r.id, r]),
 );
 
+const CUSTOM_KEY = "liangren.custom-recipes.v1";
+
+export function getCustomRecipes(): Recipe[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_KEY);
+    return raw ? (JSON.parse(raw) as Recipe[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomRecipe(recipe: Recipe): void {
+  const list = getCustomRecipes().filter((r) => r.id !== recipe.id);
+  list.push(recipe);
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+}
+
+export function removeCustomRecipe(id: string): void {
+  const list = getCustomRecipes().filter((r) => r.id !== id);
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+}
+
+export function getAllRecipes(): Recipe[] {
+  return [...RECIPES, ...getCustomRecipes()];
+}
+
 export function getRecipe(id: string): Recipe | undefined {
-  return RECIPE_MAP[id];
+  return RECIPE_MAP[id] ?? getCustomRecipes().find((r) => r.id === id);
 }

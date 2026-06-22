@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import type { Recipe } from "./types";
 import type { DayKey, DayPlan, Goal, Slot, WeekPlan } from "./types";
+import { getCustomRecipes, saveCustomRecipe, removeCustomRecipe as removeFromStorage } from "../data/recipes";
 
 const PLAN_KEY = "liangren.plan.v1";
 const GOAL_KEY = "liangren.goal.v1";
@@ -134,4 +136,38 @@ export function usePlan() {
     resetToSeed,
     clearAll,
   };
+}
+
+const AI_PROVIDER_KEY = "liangren.ai-provider.v1";
+const AI_KEY_KEY = "liangren.ai-key.v1";
+
+export type AiProvider = "openai" | "claude";
+
+export function useAiSettings() {
+  const [provider, setProvider] = useState<AiProvider>(() => {
+    const raw = localStorage.getItem(AI_PROVIDER_KEY);
+    return raw === "openai" || raw === "claude" ? raw : "openai";
+  });
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(AI_KEY_KEY) ?? "");
+
+  useEffect(() => { localStorage.setItem(AI_PROVIDER_KEY, provider); }, [provider]);
+  useEffect(() => { localStorage.setItem(AI_KEY_KEY, apiKey); }, [apiKey]);
+
+  return { provider, setProvider, apiKey, setApiKey };
+}
+
+export function useCustomRecipes() {
+  const [recipes, setRecipes] = useState<Recipe[]>(getCustomRecipes);
+
+  const add = useCallback((recipe: Recipe) => {
+    saveCustomRecipe(recipe);
+    setRecipes(getCustomRecipes());
+  }, []);
+
+  const remove = useCallback((id: string) => {
+    removeFromStorage(id);
+    setRecipes(getCustomRecipes());
+  }, []);
+
+  return { customRecipes: recipes, addCustomRecipe: add, removeCustomRecipe: remove };
 }
