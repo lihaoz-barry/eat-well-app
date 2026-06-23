@@ -11,6 +11,12 @@ const GOALS: ("全部" | Goal)[] = ["全部", "增肌", "减脂", "均衡"];
 
 const BUILTIN_IDS = new Set(RECIPES.map((r) => r.id));
 
+function fmt(s: number) {
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return `${m}:${ss.toString().padStart(2, "0")}`;
+}
+
 export default function Library() {
   const { addToSlot } = usePlan();
   const { provider, setProvider, apiKey, setApiKey } = useAiSettings();
@@ -25,6 +31,7 @@ export default function Library() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiResults, setAiResults] = useState<Recipe[]>([]);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   const allRecipes = useMemo(() => getAllRecipes(), [customRecipes]);
 
@@ -44,6 +51,7 @@ export default function Library() {
   async function handleGenerate() {
     setLoading(true);
     setError(null);
+    setPreviewing(null);
     try {
       const results = await generateRecipes({
         provider,
@@ -62,8 +70,11 @@ export default function Library() {
   function saveToLibrary(recipe: Recipe) {
     addCustomRecipe(recipe);
     setAiResults((prev) => prev.filter((r) => r.id !== recipe.id));
+    if (previewing === recipe.id) setPreviewing(null);
     flash(`已保存「${recipe.name}」到餐点库`);
   }
+
+  const previewRecipe = aiResults.find((r) => r.id === previewing);
 
   return (
     <div className="page library">
@@ -137,11 +148,21 @@ export default function Library() {
 
             {aiResults.length > 0 && (
               <div className="ai-results">
-                <p className="ai-results-head">AI 推荐 ({aiResults.length} 道) — 点击保存到餐点库</p>
+                <p className="ai-results-head">
+                  AI 推荐 ({aiResults.length} 道) — 点击卡片预览详情
+                </p>
                 <div className="recipe-grid">
                   {aiResults.map((r) => (
-                    <article className="recipe-card" key={r.id} style={{ ["--accent" as string]: r.accent }}>
-                      <div className="card-top">
+                    <article
+                      className={"recipe-card ai-card" + (previewing === r.id ? " selected" : "")}
+                      key={r.id}
+                      style={{ ["--accent" as string]: r.accent }}
+                    >
+                      <div
+                        className="card-top"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setPreviewing(previewing === r.id ? null : r.id)}
+                      >
                         <span className="card-emoji">{r.emoji}</span>
                         <div className="card-tags">
                           {r.tags.map((t) => <span className="tag" key={t}>{t}</span>)}
@@ -149,13 +170,25 @@ export default function Library() {
                         <span className="ai-badge">AI</span>
                       </div>
                       <div className="card-body">
-                        <span className="card-name">{r.name}</span>
+                        <span
+                          className="card-name"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => setPreviewing(previewing === r.id ? null : r.id)}
+                        >
+                          {r.name}
+                        </span>
                         <p className="card-blurb">{r.blurb}</p>
                         <p className="card-macro">
                           <b>{r.kcal}</b> kcal · 蛋白 {r.protein}g · {r.servings} 人份
                         </p>
                       </div>
                       <div className="card-foot">
+                        <button
+                          className="btn-mini ghost"
+                          onClick={() => setPreviewing(previewing === r.id ? null : r.id)}
+                        >
+                          {previewing === r.id ? "收起" : "预览"}
+                        </button>
                         <button className="btn-mini" onClick={() => saveToLibrary(r)}>
                           保存到库
                         </button>
@@ -163,6 +196,74 @@ export default function Library() {
                     </article>
                   ))}
                 </div>
+
+                {/* Preview detail panel */}
+                {previewRecipe && (
+                  <div className="ai-preview" style={{ ["--accent" as string]: previewRecipe.accent }}>
+                    <div className="ai-preview-header">
+                      <div className="ai-preview-title-row">
+                        <span className="ai-preview-emoji">{previewRecipe.emoji}</span>
+                        <div>
+                          <h3 className="ai-preview-name">{previewRecipe.name}</h3>
+                          <p className="ai-preview-en">{previewRecipe.nameEn}</p>
+                        </div>
+                      </div>
+                      <button className="btn-mini" onClick={() => saveToLibrary(previewRecipe)}>
+                        保存到库
+                      </button>
+                    </div>
+
+                    <p className="ai-preview-blurb">{previewRecipe.blurb}</p>
+
+                    <div className="ai-preview-macros">
+                      <div><b>{previewRecipe.kcal}</b><span>kcal</span></div>
+                      <div><b>{previewRecipe.protein}g</b><span>蛋白</span></div>
+                      <div><b>{previewRecipe.carbs}g</b><span>碳水</span></div>
+                      <div><b>{previewRecipe.fat}g</b><span>脂肪</span></div>
+                      <div><b>{previewRecipe.servings}</b><span>人份</span></div>
+                    </div>
+
+                    <div className="ai-preview-section">
+                      <h4>🛒 食材清单</h4>
+                      <ul className="ai-preview-ingredients">
+                        {previewRecipe.ingredients.map((ing, i) => (
+                          <li key={i}>
+                            <span className="ai-ing-name">{ing.name}</span>
+                            <span className="ai-ing-group">{ing.group}</span>
+                            <span className="ai-ing-amt">{ing.amount}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="ai-preview-section">
+                      <h4>👨‍🍳 制作步骤</h4>
+                      <ol className="ai-preview-steps">
+                        {previewRecipe.steps.map((step, i) => (
+                          <li key={i}>
+                            <div className="ai-step-head">
+                              <span className="ai-step-no">STEP {i + 1}</span>
+                              <span className="ai-step-title">{step.title}</span>
+                              {step.timerSeconds && (
+                                <span className="ai-step-timer">⏱ {fmt(step.timerSeconds)}</span>
+                              )}
+                            </div>
+                            <p className="ai-step-content">{step.content}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    <div className="ai-preview-foot">
+                      <button className="btn-mini ghost" onClick={() => setPreviewing(null)}>
+                        收起预览
+                      </button>
+                      <button className="btn" onClick={() => saveToLibrary(previewRecipe)}>
+                        ✓ 选这道,保存到餐点库
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

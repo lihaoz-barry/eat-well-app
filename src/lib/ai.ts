@@ -8,7 +8,7 @@ interface GenerateParams {
   existingIds: string[];
 }
 
-const SYSTEM_PROMPT = `你是一个专业的中餐营养师和厨师。请根据用户的食材偏好,生成2-3道适合两人家庭的健康食谱。
+const SYSTEM_PROMPT = `你是一个专业的中餐营养师和厨师。请根据用户的食材偏好,生成正好3道适合两人家庭的健康食谱。
 
 每道食谱必须严格遵循以下JSON格式,返回 { "recipes": [...] }:
 {
